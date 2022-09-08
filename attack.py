@@ -10,6 +10,7 @@ data_dir = "fpga100t_duDFS_V_1.00_F_50.000MHz/"
 # All files and directories ending with .dat and that don't begin with a dot:
 op_files = glob.glob(data_dir + "*.dat")
 
+# Load matrices
 covMatrix = cp.load("./data/covMatrix.npy")
 meanMatrix = cp.load("./data/meanMatrix.npy")
 POIs = cp.load("./data/POIs.npy")
@@ -39,8 +40,10 @@ exTime = np.zeros(256)
 
 for op_file in op_files:
 
+    # Start counting execution time
     s_time = time.perf_counter()
 
+    # Load traces
     f = TracesBin(op_file)
     [traces, texts] = f.getAllTraces()
     key = f.getKey()
@@ -77,16 +80,18 @@ for op_file in op_files:
             attempts[t] = j + 1
             break
 
+    # Compute execution time for each step and log results
     e_time = time.perf_counter()
     exTime[t] = e_time - s_time
     log.append(str(e_time - s_time) + " seconds")
     log.append("")
     t += 1
 
+# Compute avg for attempts and execution time
 log.insert(0, "AVG Execution Time: " + str(np.average(exTime)) + " seconds")
 log.insert(0, "AVG attempts: " + str(np.average(attempts)))
 
-
+# Write log to output file
 with open(r'./out.txt', 'w') as fp:
     for item in log:
         fp.write("%s\n" % item)

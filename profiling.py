@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from traces_bin_reader.TracesBin import TracesBin
 import glob
 
-cp.cuda.runtime.getDeviceProperties(0)
-
 sbox = np.array([
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -27,7 +25,6 @@ sbox = np.array([
 
 def cov(x, y):
     return cp.cov(x.T, y.T, bias=1)[0][1]
-
 
 data_dir = "fpga100t_duDFS_V_1.00_F_50.000MHz/"
 
@@ -67,26 +64,26 @@ for op_file in op_files:
 
 tempMeansList = cp.array(tempMeansList)
 
+# Average for all the traces
 means = cp.average(tempMeansList, axis=0)
 
-sumDiff = cp.zeros(Nsamples)
+tempSumDiff = cp.zeros(Nsamples)
 for i in range(9):
     for j in range(i):
-        sumDiff += cp.abs(means[i] - means[j])
+        tempSumDiff += cp.abs(means[i] - means[j])
 
-numPOIs = 5  # How many POIs do we want?
-POIspacing = 5  # How far apart do the POIs have to be?
+numPOIs = 5
+POIspacing = 5  # How far apart do the POIs have to be
 
 # Make an empty list of POIs
 POIs = []
-tempSumDiff = sumDiff.copy()
 # Repeat until we have enough POIs
 for i in range(numPOIs):
     # Find the biggest peak and add it to the list of POIs
     nextPOI = tempSumDiff.argmax().item()
     POIs.append(nextPOI)
 
-    # Zero out some of the surrounding points
+    # Zero out some surrounding points
     # Make sure we don't go out of bounds
     poiMin = max(0, nextPOI - POIspacing)
     poiMax = min(nextPOI + POIspacing, len(tempSumDiff))
@@ -98,7 +95,7 @@ for HW in range(9):
     for i in range(numPOIs):
         meanMatrix[HW][i] = means[HW][POIs[i]]
 
-
+# Search for trace values at POIs position
 tempTracesHWPOIs = [[] for _ in range(9)]
 for op_file in op_files:
     f = TracesBin(op_file)
@@ -116,9 +113,7 @@ for op_file in op_files:
 
     print(op_file)
 
-
 tempTracesHWPOIs = [cp.array(tempTracesHWPOIs[HW]) for HW in range(9)]
-
 
 covMatrix = cp.zeros((9, numPOIs, numPOIs))
 for HW in range(9):
@@ -129,7 +124,9 @@ for HW in range(9):
                 y = tempTracesHWPOIs[HW][:, j]
                 covMatrix[HW, i, j] = cov(x, y)
 
+# Save data to file
 cp.save("./data/meanMatrix.npy", meanMatrix)
 cp.save("./data/covMatrix.npy", covMatrix)
 cp.save("./data/POIs.npy", POIs)
+
 print("end profiling")
